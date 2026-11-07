@@ -1,0 +1,11 @@
+LED example
+===========
+Connect the MicroZed USB-UART port, select its serial port and click Connect.
+Select examples/led_test.elf under CPU and choose Run from RAM.
+Click Program CPU. D3 should blink six times and then stay on.
+The program checks the GPIO level and prints LED GPIO READBACK: PASS.
+
+For a combined FPGA + CPU check, select examples/usb_probe.bit under FPGA and
+examples/fpga_cpu_test.elf under CPU, then click Program both. The FPGA image exposes a test signature.
+D3 is connected to CPU MIO47; the CPU-only LED test does not require a bitstream.
+Run from RAM is recommended for this example because it preserves Flash.

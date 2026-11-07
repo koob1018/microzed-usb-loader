@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+gui/build/
+gui/dist/
+*.spec
+*.log
+backups/
+validation/
+build/vivado/
+.Xil/
