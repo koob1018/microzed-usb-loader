@@ -1,0 +1,7 @@
+* text=auto
+*.bin -text
+*.elf -text
+*.bit -text
+*.sys -text
+*.cat -text
+*.inf -text
