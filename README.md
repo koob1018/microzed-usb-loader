@@ -1,203 +1,140 @@
 # MicroZed USB Loader
 
-Load FPGA `.bit` and standalone ARM CPU `.elf` files through the MicroZed USB-UART cable using the factory U-Boot. No JTAG adapter, Ethernet cable or microSD card is required for the verified setup.
+Load FPGA `.bit` and standalone ARM CPU `.elf` files onto a MicroZed through its USB-UART cable, using the factory U-Boot. No JTAG adapter, Ethernet or microSD card is needed for the tested setup. Load FPGA and CPU separately or together, then view serial output.
 
-**[Download the latest release](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
+Programs run in RAM and are lost at power-off.
 
-Choose the Windows full package (GUI + CLI) or the lightweight cross-platform Python CLI. Both load programs into RAM for immediate execution; loaded programs are lost at power-off. Drivers are installed separately; see [driver setup](DRIVERS.md).
+## Download
 
-## Windows full package (GUI + CLI)
+**[Get the latest release](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
 
-1. Extract **MicroZed-USB-Loader.zip** completely and run the executable. Keep `_internal` alongside it.
-2. Connect USB-UART, select the serial port, and click **Connect**. If no port appears, use **Driver help**, then **Refresh**.
+| Package | Includes | Requirements |
+| --- | --- | --- |
+| **MicroZed-USB-Loader.zip** | Windows GUI + standalone CLI, examples and helper sources | Windows; no Python installation needed |
+| **MicroZed-USB-Loader-CLI.zip** | Lightweight cross-platform CLI, examples and helper sources | Python 3.10+ and pyserial; no Qt |
+
+Connect the board's **USB-UART** port with a data-capable cable. If no serial port appears, see [driver setup](DRIVERS.md). Drivers are installed separately. Vivado/Vitis are not needed to run the loader; use your design tools to generate your own `.bit` and `.elf` files.
+
+## Quick start
+
+### Windows GUI
+
+1. Extract the full package and run **MicroZed-USB-Loader.exe**. Keep `_internal` beside both executables.
+2. Select the serial port and click **Connect**. Use **Driver help** or **Refresh** if needed.
 3. Drop or browse for a `.bit` and/or `.elf` file.
-4. Click **Program FPGA**, **Program CPU** or **Program both**. All loads use RAM.
-5. The connection remains open for serial output. Click **Disconnect** to release it.
+4. Click **Program FPGA**, **Program CPU** or **Program both**.
+5. Serial output remains visible. Click **Disconnect** to release the port.
 
-Both Windows executables work without installing Python, pyserial, Vivado or Vitis. They share the `_internal` runtime directory. File selections start empty.
+For a first test, select `examples/led_test.elf` under **CPU**, leave FPGA empty and click **Program CPU**. D3 should blink six times and remain on.
 
-For the CLI, open PowerShell in the extracted folder:
+### Command line
+
+Run from the extracted package folder. Both editions have identical options; only the launcher and example paths differ.
+
+**Windows full package — PowerShell:**
 
 ```powershell
 ./microzed-cli.exe --list-ports
 ./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
-./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf
 ```
 
-Use `--help` for options. `--build-helpers` is also available in the executable; it uses the included helper sources and requires ARM GCC and objcopy on PATH.
+**Lightweight package / repository root:**
 
-## Lightweight CLI (Windows / Linux / macOS)
-
-Download **MicroZed-USB-Loader-CLI.zip** or clone the repository, then run from its root. Python 3.10+ and **pyserial only** are required; Qt is not needed.
-
-```text
+```sh
 python -m pip install -r gui/requirements-cli.txt
 python gui/cli.py --list-ports
 python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
-python gui/cli.py --port COM4 --bit build/usb_probe.bit
-python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
 ```
+
+Replace `COM4` with your port: e.g. `/dev/ttyUSB0` on Linux or `/dev/cu.usbserial-0001` on macOS. Use `python3` if that is your Python command. Press **Ctrl+C** to exit monitoring. GUI and CLI cannot use the same port simultaneously.
 
 ## CLI reference
 
-Both packages accept the same options; only the launch command and bundled example paths differ.
-
-| Package | Launch command | Example files |
-| --- | --- | --- |
-| Windows full package | `./microzed-cli.exe` | `examples/` |
-| Lightweight CLI / repository | `python gui/cli.py` | `build/` |
-
-Run commands from the extracted package folder (repository root for source users). On systems where Python is named `python3`, use `python3` instead of `python`.
-
-### Syntax and options
-
 ```text
-./microzed-cli.exe --help
-./microzed-cli.exe --list-ports
-./microzed-cli.exe --port PORT [--bit FILE] [--elf FILE] [--ram] [--build-helpers] [--monitor]
+./microzed-cli.exe [-h | --list-ports]
+./microzed-cli.exe --port PORT [--bit FILE] [--elf FILE] [--monitor] [--build-helpers] [--ram]
 
-python gui/cli.py --help
-python gui/cli.py --list-ports
-python gui/cli.py --port PORT [--bit FILE] [--elf FILE] [--ram] [--build-helpers] [--monitor]
+python gui/cli.py [-h | --list-ports]
+python gui/cli.py --port PORT [--bit FILE] [--elf FILE] [--monitor] [--build-helpers] [--ram]
 ```
 
-Square brackets mean optional arguments; do not type the brackets. Replace `PORT` and `FILE` with actual values. A connection requires `--port` and at least one of `--bit`, `--elf` or `--monitor`. Help and port listing do not require a port.
+Brackets denote optional arguments; do not type them. For a connection, provide `--port` and at least one of `--bit`, `--elf` or `--monitor`.
 
-| Option | Purpose |
+| Option | Function |
 | --- | --- |
-| `-h`, `--help` | Show usage and exit. |
-| `--list-ports` | List available serial ports and exit. |
-| `--port PORT` | Select the serial port, such as `COM4`, `/dev/ttyUSB0` or `/dev/cu.usbserial-0001`. |
-| `--bit FILE` | Load an FPGA `.bit` file. Can be used alone or with `--elf`. |
-| `--elf FILE` | Load and start a standalone ARM CPU `.elf` file. Can be used alone or with `--bit`. |
-| `--ram` | Explicitly select RAM loading. Optional: this is already the default. |
-| `--monitor` | Keep showing serial output after loading until Ctrl+C. Used alone with `--port`, it only monitors and sends no boot commands. |
-| `--build-helpers` | Compile the tool's helper programs from included source instead of using bundled binaries. Requires ARM GCC and objcopy on PATH. |
+| `-h`, `--help` | Show help and exit. |
+| `--list-ports` | List serial ports and exit; no connection required. |
+| `--port PORT` | Select the serial port. |
+| `--bit FILE` | Load an FPGA bitstream. |
+| `--elf FILE` | Load and start a standalone ARM CPU program. |
+| `--monitor` | Keep displaying board output until Ctrl+C; also works without loading. Monitor-only sends no boot commands. |
+| `--build-helpers` | Compile internal helper programs from included source; requires ARM GCC and objcopy on PATH. |
+| `--ram` | Explicit RAM loading; optional because it is already the default. |
 
-### Windows full-package examples
+Append any of these argument combinations to **either** launcher above. Replace filenames and port as needed; quote paths containing spaces.
 
-```powershell
-# Show help or list ports
-./microzed-cli.exe --help
-./microzed-cli.exe --list-ports
+| Task | Arguments |
+| --- | --- |
+| FPGA only | `--port COM4 --bit design.bit` |
+| CPU only | `--port COM4 --elf app.elf` |
+| FPGA + CPU | `--port COM4 --bit design.bit --elf app.elf` |
+| Load and monitor | `--port COM4 --elf app.elf --monitor` |
+| Monitor only | `--port COM4 --monitor` |
+| Rebuild helpers and load | `--port COM4 --elf app.elf --build-helpers --monitor` |
+| Path containing spaces | `--port COM4 --elf "C:/My Project/app.elf"` |
 
-# FPGA only
-./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit
+`--monitor` and `--build-helpers` also work with FPGA-only and combined loads.
 
-# CPU only
-./microzed-cli.exe --port COM4 --elf examples/led_test.elf
+### Optional: compile helpers yourself
 
-# FPGA and CPU together
-./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf
+Normally, the loader uses its bundled helper binaries. `--build-helpers` instead compiles the internal helper source locally; it does **not** compile your FPGA design or CPU application. Install `arm-none-eabi-gcc` and `arm-none-eabi-objcopy` and add their directory to PATH.
 
-# Load, then keep showing board output
-./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
+The helpers handle CPU cache synchronization (`cache_sync`) and serial-speed switching (`uart_speed`). All three supplied helpers are compiled into a temporary directory; `backup_sender` is retained for source review but is not used during loading. See [BUILD.md](BUILD.md).
 
-# Monitor only, without loading
-./microzed-cli.exe --port COM4 --monitor
+## Included examples
 
-# Rebuild helpers, then load and monitor
-./microzed-cli.exe --port COM4 --elf examples/led_test.elf --build-helpers --monitor
+| Test | Windows full package | Lightweight package / repository | Expected result |
+| --- | --- | --- | --- |
+| CPU-only LED | `examples/led_test.elf` | `build/led_test.elf` | D3 blinks six times, stays on; `LED GPIO READBACK: PASS`. No FPGA file needed. |
+| FPGA + CPU | `examples/usb_probe.bit` + `examples/fpga_cpu_test.elf` | `build/usb_probe.bit` + `build/hello.elf` | CPU verifies the FPGA signature, then performs the LED test. |
 
-# Your own file: quote paths containing spaces
-./microzed-cli.exe --port COM4 --elf "C:/My Project/app.elf" --ram
-```
+**`fpga_cpu_test.elf` and `hello.elf` are the same program under different package filenames.** Both CPU examples return to U-Boot when finished. The combined test should report `FPGA SIGNATURE: PASS` as well as the LED result.
 
-### Lightweight CLI examples
-
-```sh
-# Show help or list ports
-python gui/cli.py --help
-python gui/cli.py --list-ports
-
-# FPGA only
-python gui/cli.py --port COM4 --bit build/usb_probe.bit
-
-# CPU only
-python gui/cli.py --port COM4 --elf build/led_test.elf
-
-# FPGA and CPU together
-python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf
-
-# Load, then keep showing board output
-python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
-
-# Monitor only, without loading
-python gui/cli.py --port COM4 --monitor
-
-# Rebuild helpers, then load and monitor
-python gui/cli.py --port COM4 --elf build/led_test.elf --build-helpers --monitor
-
-# Your own file: quote paths containing spaces
-python gui/cli.py --port COM4 --elf "C:/My Project/app.elf" --ram
-
-# Linux and macOS port examples: replace with your actual device
-python3 gui/cli.py --port /dev/ttyUSB0 --elf build/led_test.elf --monitor
-python3 gui/cli.py --port /dev/cu.usbserial-0001 --elf build/led_test.elf --monitor
-```
-
-`--monitor` and `--build-helpers` can also be added to FPGA-only or combined loads. Press **Ctrl+C** to stop monitoring and release the serial port. During an interrupted download the tool attempts to cancel reception and restore the console; if recovery is not confirmed, press **RST** before retrying. Do not connect the GUI and CLI to the same port simultaneously.
-
-### Build helpers from source
-
-Most users can use the bundled helper binaries and omit `--build-helpers`. This optional flag is for users who want to review and compile the tool's internal helper programs themselves; it does not compile your FPGA design or CPU application.
-
-Install `arm-none-eabi-gcc` and `arm-none-eabi-objcopy` and add their directory to PATH, then use either package's `--build-helpers` example above.
-
-This compiles `cache_sync`, `uart_speed` and `backup_sender` into a temporary directory and uses the freshly built RAM helpers for that session. `backup_sender` is retained as buildable source for review, but the loader does not upload or use it. No vendor FPGA tools are required to compile these helpers. See [BUILD.md](BUILD.md).
-
-## LED example
-
-CPU-only: `build/led_test.elf` (GUI ZIP: `examples/led_test.elf`) blinks D3 six times and leaves it on, then returns to U-Boot. No FPGA file is needed.
-
-Run from the extracted Windows full-package folder (replace `COM4` with your port):
+CPU-only commands are shown in Quick start. For the combined test:
 
 ```powershell
-./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
-```
-
-Or from the lightweight CLI package / repository root:
-
-```text
-python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
-```
-
-In the GUI, select `examples/led_test.elf` under **CPU**, connect the serial port, then click **Program CPU**. Leave the FPGA field empty. D3 should blink six times and remain on; the serial output should report `LED GPIO READBACK: PASS`. Press Ctrl+C to exit CLI monitoring.
-
-Combined FPGA + CPU example, which checks an FPGA signature before blinking D3:
-
-```powershell
+# Windows full package
 ./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf --monitor
 ```
 
-```text
+```sh
+# Lightweight package / repository
 python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
 ```
 
-Example C source: [LED test](src/led_test.c) and [combined FPGA/CPU test](src/hello.c). See [BUILD.md](BUILD.md) to rebuild them.
+C source: [LED test](src/led_test.c), [combined test](src/hello.c). Rebuild instructions: [BUILD.md](BUILD.md).
 
 ## How it works and compatibility
 
-U-Boot receives data into DDR using YMODEM. A RAM helper switches transfers to 921600 and restores the 115200 console. U-Boot configures the FPGA through PCAP and starts CPU code at the ELF entry point. CRC32 verifies transfers.
+U-Boot receives data into DDR using YMODEM, configures the FPGA through PCAP and starts CPU code at the ELF entry point. RAM helpers switch transfers to 921600 baud, restore the 115200 console and synchronize CPU caches. CRC32 verifies transfers.
 
-- Hardware tested on MicroZed XC7Z020-1CLG400 with factory 2013 U-Boot, Windows 11 x64. Linux/macOS CLI support uses portable Python/pyserial; hardware validation on those hosts is not yet claimed.
-- CPU files must be standalone ARM Cortex-A9 executables, not Linux programs. Existing PS clocks, DDR and MIO initialization must match the design. The loader does not apply an XSA, ps7_init.tcl or FSBL.
-- Helpers reserve `0x0f000000–0x0f001fff`; overlapping CPU images are rejected.
-- If a running program does not return, start loading and press RST while the tool waits for U-Boot. This tool does not provide breakpoint debugging.
-- CPU programs execute with board-level privileges, so load only code you trust.
+- **Tested hardware:** MicroZed XC7Z020-1CLG400, factory 2013 U-Boot, Windows 11 x64. Linux/macOS hardware testing has not been performed. See [validation results](VALIDATION.md).
+- **Your design:** CPU files must be standalone ARM Cortex-A9 executables, not Linux applications. Designs must match the existing PS clocks, DDR and MIO initialization; the loader does not apply an XSA, FSBL or `ps7_init.tcl`.
+- **Memory:** Helpers reserve `0x0f000000–0x0f001fff`; overlapping CPU images are rejected.
+- **Recovery:** If a program does not return, start loading and press **RST** while the tool waits for U-Boot. After an interrupted transfer, retry only once the console has recovered; otherwise press RST first.
+- **Scope:** This is a loader, not a breakpoint debugger. CPU programs run with board-level privileges; use code you trust.
 
-See [driver setup](DRIVERS.md), [validation](VALIDATION.md) and [changes](CHANGELOG.md).
+## Development
 
-## Develop the GUI
-
-```text
+```powershell
 python -m venv gui/.venv
-gui/.venv/Scripts/python.exe -m pip install -r gui/requirements.txt
-gui/.venv/Scripts/python.exe -m pytest gui/tests -q
-gui/.venv/Scripts/python.exe gui/app.py
+./gui/.venv/Scripts/python.exe -m pip install -r gui/requirements.txt
+./gui/.venv/Scripts/python.exe -m pytest gui/tests -q
+./gui/.venv/Scripts/python.exe gui/app.py
+./gui/build.ps1
 ```
 
-On Windows, run `gui/build.ps1` to package the GUI. Original code is MIT licensed; see [third-party notices](THIRD_PARTY_NOTICES.md).
+The Windows build produces both executables with a shared runtime. See [BUILD.md](BUILD.md) and [change history](CHANGELOG.md). Original code is MIT licensed; bundled components retain their [own licenses](THIRD_PARTY_NOTICES.md).
 
 ## Acknowledgements
 
