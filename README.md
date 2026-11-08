@@ -62,7 +62,31 @@ This compiles `cache_sync`, `uart_speed` and `backup_sender` into a temporary di
 
 CPU-only: `build/led_test.elf` (GUI ZIP: `examples/led_test.elf`) blinks D3 six times and leaves it on, then returns to U-Boot. No FPGA file is needed.
 
-Combined test: `build/usb_probe.bit` with `build/hello.elf` (GUI ZIP: `examples/fpga_cpu_test.elf`) checks an FPGA signature before blinking D3.
+Run from the extracted Windows full-package folder (replace `COM4` with your port):
+
+```powershell
+./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
+```
+
+Or from the lightweight CLI package / repository root:
+
+```text
+python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
+```
+
+In the GUI, select `examples/led_test.elf` under **CPU**, connect the serial port, then click **Program CPU**. Leave the FPGA field empty. D3 should blink six times and remain on; the serial output should report `LED GPIO READBACK: PASS`. Press Ctrl+C to exit CLI monitoring.
+
+Combined FPGA + CPU example, which checks an FPGA signature before blinking D3:
+
+```powershell
+./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf --monitor
+```
+
+```text
+python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
+```
+
+Example C source: [LED test](src/led_test.c) and [combined FPGA/CPU test](src/hello.c). See [BUILD.md](BUILD.md) to rebuild them.
 
 ## How it works and compatibility
 
@@ -89,4 +113,4 @@ On Windows, run `gui/build.ps1` to package the GUI. Original code is MIT license
 
 ## Acknowledgements
 
-Thanks to Shiming Li for testing the tool, contributing the initial CLI with monitoring and source-built helpers, and suggesting the RAM-only workflow and separate driver installation.
+Thanks to Shiming Li for testing the tool and contributing the initial CLI with monitoring and source-built helpers.
