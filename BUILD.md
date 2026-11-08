@@ -16,7 +16,7 @@ Copy-Item build/cache_sync.bin gui/assets/cache_sync.bin
 vivado -mode batch -source scripts/build_pl.tcl
 ```
 
-`gui/build.ps1` packages the application, examples and notices into `gui/dist/MicroZed-USB-Loader.zip`.
+`gui/build.ps1` uses `gui/loader.spec` to package the GUI and console CLI executables with one shared runtime, helper sources, examples and notices into `gui/dist/MicroZed-USB-Loader.zip`.
 
 
 The CLI can compile all three helpers with `--build-helpers`. ARM GCC and objcopy must be on PATH. The backup reader is not used by RAM-only loading.

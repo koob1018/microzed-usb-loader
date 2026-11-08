@@ -25,8 +25,9 @@ from pathlib import Path
 from backend import Board
 from formats import read_bit, read_elf
 
-ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / 'gui' / 'assets'
+FROZEN = getattr(sys, 'frozen', False)
+ROOT = Path(sys._MEIPASS) if FROZEN else Path(__file__).resolve().parents[1]
+ASSETS = ROOT / 'assets' if FROZEN else ROOT / 'gui' / 'assets'
 DATA = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'MicroZedLoader'  # same folder as the GUI
 # Board text is printed as received, minus control characters that could upset the terminal.
 CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b-\x1f\x7f]')
@@ -121,7 +122,7 @@ def run(port, mode, fpga, arm, helpers, monitor=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description='Load FPGA .bit and CPU .elf files onto a MicroZed 7020 over its USB-UART cable.',
-        epilog='List serial ports with: python -m serial.tools.list_ports')
+        epilog='Use --list-ports to list available serial ports.')
     parser.add_argument('--port', help='serial port, e.g. COM5, /dev/ttyUSB0 or /dev/cu.usbserial-0001')
     parser.add_argument('--list-ports', action='store_true', help='list available serial ports and exit')
     parser.add_argument('--bit', metavar='FILE', help='FPGA bitstream from Vivado')

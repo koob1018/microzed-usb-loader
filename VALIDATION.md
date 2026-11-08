@@ -1,4 +1,15 @@
-# Validation — v1.1.0
+# Validation
+
+## Windows full package
+
+- The extracted GUI and standalone CLI share a single `_internal` dependency directory; GUI startup was checked.
+- Standalone CLI help, serial listing, empty arguments and missing-file errors were tested with Python removed from PATH and an unrelated working directory.
+- Standalone CLI CPU-only, FPGA-only and combined loads passed on the board with both bundled helpers and source-built helpers (six runs).
+- The console monitor was started and interrupted, and the serial port was checked for release.
+- The lightweight source package remains independent of Qt and runs with Python and pyserial.
+- 97 automated tests passed. This packaging update does not change the serial download backend.
+
+## Transport and GUI acceptance
 
 Tested on Windows 11 x64, Python 3.12, and one MicroZed XC7Z020 with factory 2013 U-Boot.
 

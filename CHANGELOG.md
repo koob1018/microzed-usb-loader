@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.2.0
+
+- Windows full package includes both GUI and console CLI executables sharing one runtime.
+- Both Windows entry points work without a separate Python installation.
+- Included helper sources support `--build-helpers` in the packaged CLI.
+- Lightweight cross-platform CLI source package remains available separately.
+
 ## v1.1.0 — RAM-only loading and CLI
 
 - Added the CLI contributed by Shiming Li, with integration changes and tests.

@@ -2,7 +2,7 @@ param([string]$Python = "$PSScriptRoot/.venv/Scripts/python.exe")
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
-    & $Python -m PyInstaller --noconfirm --windowed --onedir --name MicroZed-USB-Loader --add-data 'assets;assets' app.py
+    & $Python -m PyInstaller --noconfirm loader.spec
     if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed' }
     $releaseDir = Join-Path $PSScriptRoot 'dist/MicroZed-USB-Loader'
     Copy-Item -LiteralPath 'README.txt' -Destination $releaseDir

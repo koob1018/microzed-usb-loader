@@ -9,3 +9,5 @@ backups/
 validation/
 build/vivado/
 .Xil/
+
+!gui/loader.spec

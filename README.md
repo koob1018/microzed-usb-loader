@@ -4,9 +4,9 @@ Load FPGA `.bit` and standalone ARM CPU `.elf` files through the MicroZed USB-UA
 
 **[Download the latest release](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
 
-Choose the Windows GUI or the lightweight Python CLI. Both load programs into RAM for immediate execution; loaded programs are lost at power-off. Drivers are installed separately; see [driver setup](DRIVERS.md).
+Choose the Windows full package (GUI + CLI) or the lightweight cross-platform Python CLI. Both load programs into RAM for immediate execution; loaded programs are lost at power-off. Drivers are installed separately; see [driver setup](DRIVERS.md).
 
-## Windows GUI
+## Windows full package (GUI + CLI)
 
 1. Extract **MicroZed-USB-Loader.zip** completely and run the executable. Keep `_internal` alongside it.
 2. Connect USB-UART, select the serial port, and click **Connect**. If no port appears, use **Driver help**, then **Refresh**.
@@ -14,9 +14,19 @@ Choose the Windows GUI or the lightweight Python CLI. Both load programs into RA
 4. Click **Program FPGA**, **Program CPU** or **Program both**. All loads use RAM.
 5. The connection remains open for serial output. Click **Disconnect** to release it.
 
-The packaged GUI needs no Python, Vivado or Vitis installation. File selections start empty.
+Both Windows executables work without installing Python, pyserial, Vivado or Vitis. They share the `_internal` runtime directory. File selections start empty.
 
-## Command line (Windows / Linux / macOS)
+For the CLI, open PowerShell in the extracted folder:
+
+```powershell
+./microzed-cli.exe --list-ports
+./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
+./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf
+```
+
+Use `--help` for options. `--build-helpers` is also available in the executable; it uses the included helper sources and requires ARM GCC and objcopy on PATH.
+
+## Lightweight CLI (Windows / Linux / macOS)
 
 Download **MicroZed-USB-Loader-CLI.zip** or clone the repository, then run from its root. Python 3.10+ and **pyserial only** are required; Qt is not needed.
 
