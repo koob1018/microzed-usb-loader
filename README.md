@@ -38,25 +38,113 @@ python gui/cli.py --port COM4 --bit build/usb_probe.bit
 python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
 ```
 
-Use your actual port: for example `/dev/ttyUSB0` on Linux or `/dev/cu.usbserial-0001` on macOS. `--ram` is accepted for compatibility but optional.
+## CLI reference
 
-Monitor without loading or sending boot commands:
+Both packages accept the same options; only the launch command and bundled example paths differ.
+
+| Package | Launch command | Example files |
+| --- | --- | --- |
+| Windows full package | `./microzed-cli.exe` | `examples/` |
+| Lightweight CLI / repository | `python gui/cli.py` | `build/` |
+
+Run commands from the extracted package folder (repository root for source users). On systems where Python is named `python3`, use `python3` instead of `python`.
+
+### Syntax and options
 
 ```text
-python gui/cli.py --port COM4 --monitor
+./microzed-cli.exe --help
+./microzed-cli.exe --list-ports
+./microzed-cli.exe --port PORT [--bit FILE] [--elf FILE] [--ram] [--build-helpers] [--monitor]
+
+python gui/cli.py --help
+python gui/cli.py --list-ports
+python gui/cli.py --port PORT [--bit FILE] [--elf FILE] [--ram] [--build-helpers] [--monitor]
 ```
 
-Press **Ctrl+C** to stop monitoring and release the serial port. During an interrupted download the tool attempts to cancel reception and restore the console; if recovery is not confirmed, press **RST** before retrying. Do not connect the GUI and CLI to the same port simultaneously.
+Square brackets mean optional arguments; do not type the brackets. Replace `PORT` and `FILE` with actual values. A connection requires `--port` and at least one of `--bit`, `--elf` or `--monitor`. Help and port listing do not require a port.
+
+| Option | Purpose |
+| --- | --- |
+| `-h`, `--help` | Show usage and exit. |
+| `--list-ports` | List available serial ports and exit. |
+| `--port PORT` | Select the serial port, such as `COM4`, `/dev/ttyUSB0` or `/dev/cu.usbserial-0001`. |
+| `--bit FILE` | Load an FPGA `.bit` file. Can be used alone or with `--elf`. |
+| `--elf FILE` | Load and start a standalone ARM CPU `.elf` file. Can be used alone or with `--bit`. |
+| `--ram` | Explicitly select RAM loading. Optional: this is already the default. |
+| `--monitor` | Keep showing serial output after loading until Ctrl+C. Used alone with `--port`, it only monitors and sends no boot commands. |
+| `--build-helpers` | Compile the tool's helper programs from included source instead of using bundled binaries. Requires ARM GCC and objcopy on PATH. |
+
+### Windows full-package examples
+
+```powershell
+# Show help or list ports
+./microzed-cli.exe --help
+./microzed-cli.exe --list-ports
+
+# FPGA only
+./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit
+
+# CPU only
+./microzed-cli.exe --port COM4 --elf examples/led_test.elf
+
+# FPGA and CPU together
+./microzed-cli.exe --port COM4 --bit examples/usb_probe.bit --elf examples/fpga_cpu_test.elf
+
+# Load, then keep showing board output
+./microzed-cli.exe --port COM4 --elf examples/led_test.elf --monitor
+
+# Monitor only, without loading
+./microzed-cli.exe --port COM4 --monitor
+
+# Rebuild helpers, then load and monitor
+./microzed-cli.exe --port COM4 --elf examples/led_test.elf --build-helpers --monitor
+
+# Your own file: quote paths containing spaces
+./microzed-cli.exe --port COM4 --elf "C:/My Project/app.elf" --ram
+```
+
+### Lightweight CLI examples
+
+```sh
+# Show help or list ports
+python gui/cli.py --help
+python gui/cli.py --list-ports
+
+# FPGA only
+python gui/cli.py --port COM4 --bit build/usb_probe.bit
+
+# CPU only
+python gui/cli.py --port COM4 --elf build/led_test.elf
+
+# FPGA and CPU together
+python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf
+
+# Load, then keep showing board output
+python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
+
+# Monitor only, without loading
+python gui/cli.py --port COM4 --monitor
+
+# Rebuild helpers, then load and monitor
+python gui/cli.py --port COM4 --elf build/led_test.elf --build-helpers --monitor
+
+# Your own file: quote paths containing spaces
+python gui/cli.py --port COM4 --elf "C:/My Project/app.elf" --ram
+
+# Linux and macOS port examples: replace with your actual device
+python3 gui/cli.py --port /dev/ttyUSB0 --elf build/led_test.elf --monitor
+python3 gui/cli.py --port /dev/cu.usbserial-0001 --elf build/led_test.elf --monitor
+```
+
+`--monitor` and `--build-helpers` can also be added to FPGA-only or combined loads. Press **Ctrl+C** to stop monitoring and release the serial port. During an interrupted download the tool attempts to cancel reception and restore the console; if recovery is not confirmed, press **RST** before retrying. Do not connect the GUI and CLI to the same port simultaneously.
 
 ### Build helpers from source
 
-To avoid precompiled helper binaries, install `arm-none-eabi-gcc` and `arm-none-eabi-objcopy` on PATH:
+Most users can use the bundled helper binaries and omit `--build-helpers`. This optional flag is for users who want to review and compile the tool's internal helper programs themselves; it does not compile your FPGA design or CPU application.
 
-```text
-python gui/cli.py --port COM4 --elf build/led_test.elf --build-helpers --monitor
-```
+Install `arm-none-eabi-gcc` and `arm-none-eabi-objcopy` and add their directory to PATH, then use either package's `--build-helpers` example above.
 
-This compiles `cache_sync`, `uart_speed` and `backup_sender` into a temporary directory and uses the freshly built RAM helpers for that session. `backup_sender` is retained as buildable source for review, but the RAM-only loader does not upload or use it. No vendor FPGA tools are required to compile these helpers. See [BUILD.md](BUILD.md).
+This compiles `cache_sync`, `uart_speed` and `backup_sender` into a temporary directory and uses the freshly built RAM helpers for that session. `backup_sender` is retained as buildable source for review, but the loader does not upload or use it. No vendor FPGA tools are required to compile these helpers. See [BUILD.md](BUILD.md).
 
 ## LED example
 
