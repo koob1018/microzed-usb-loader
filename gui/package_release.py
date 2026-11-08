@@ -4,7 +4,7 @@ import sys,PySide6
 from importlib.metadata import distribution
 root=Path(__file__).parent
 release=root/'dist/MicroZed-USB-Loader'
-for name in ('LICENSE','THIRD_PARTY_NOTICES.md'):
+for name in ('LICENSE','THIRD_PARTY_NOTICES.md','DRIVERS.md'):
     shutil.copy2(root.parent/name,release/name)
 # Qt uses the Windows ICU API. Do not ship unrelated Poppler/Conda ICU DLLs
 # discovered on the build machine PATH (their exports are incompatible).

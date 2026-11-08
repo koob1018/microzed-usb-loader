@@ -1,13 +1,13 @@
 """MicroZed USB Loader — native Qt GUI."""
-import sys,os,traceback,json,serial
+import sys,os,traceback,serial
 from datetime import datetime
 from pathlib import Path
 from PySide6.QtCore import Qt,QThread,Signal,QTimer
-from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QComboBox,QCheckBox,QButtonGroup,QFileDialog,QPlainTextEdit,QProgressBar,QFrame,QMessageBox)
+from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QComboBox,QFileDialog,QPlainTextEdit,QProgressBar,QFrame,QMessageBox)
 from serial.tools import list_ports
-from formats import read_bit,read_elf,PAYLOAD_SIZE
+from formats import read_bit,read_elf
 from backend import Board
-from driver_setup import DriverTask,needs_install
+from driver_help import DRIVER_HELP
 
 ASSETS=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'assets'
 DATA=Path(os.environ.get('LOCALAPPDATA',str(Path.home()))) / 'MicroZedLoader'
@@ -42,21 +42,19 @@ class Worker(QThread):
         super().__init__();self.port=port;self.mode=mode;self.fpga=fpga;self.arm=arm
     def run(self):
         stamp=datetime.now().strftime('%Y%m%d-%H%M%S-%f')
-        directory=DATA/'backups'/stamp;logpath=DATA/'logs'/f'{stamp}.log'
+        logpath=DATA/'logs'/f'{stamp}.log'
         try:
             if self.fpga is None and self.arm is None:raise ValueError('Select at least one valid file.')
             if not self.port:raise ValueError('Select a serial port.')
-            if self.mode not in ('ram','flash'):raise ValueError('Select a programming mode.')
+            if self.mode != 'ram':raise ValueError('Flash writing is disabled. Only RAM loading is supported.')
             logpath.parent.mkdir(parents=True,exist_ok=True)
             with logpath.open('w',encoding='utf-8') as f:
                 def log(text):f.write(text);f.flush();self.text.emit(text)
                 try:
                     with Board(self.port,ASSETS,log,self.progress.emit) as board:
                         self.progress.emit(0,'Connecting to the board and detecting U-Boot');board.enter();board.identify()
-                        if self.mode=='flash':message=board.save(self.fpga,self.arm,directory)
-                        else:
-                            if self.fpga:board.fpga(self.fpga)
-                            message=board.arm(self.arm) if self.arm else 'FPGA configured and DONE verified. Flash is unchanged.'
+                        if self.fpga:board.fpga(self.fpga)
+                        message=board.arm(self.arm) if self.arm else 'FPGA configured and DONE verified. Flash is unchanged.'
                     self.result.emit(True,message,str(logpath))
                 except Exception:
                     log('\n'+traceback.format_exc());raise
@@ -64,12 +62,12 @@ class Worker(QThread):
             self.result.emit(False,str(exc),str(logpath))
 
 class Window(QMainWindow):
-    def __init__(self,auto_driver=True):
-        super().__init__();self.setWindowTitle('MicroZed USB Loader');self.resize(960,940);self.setMinimumSize(760,920);self.setAcceptDrops(True)
+    def __init__(self):
+        super().__init__();self.setWindowTitle('MicroZed USB Loader');self.resize(960,880);self.setMinimumSize(760,820);self.setAcceptDrops(True)
         self.worker=None;self.images={};self.busy=False;self.connection=None
         container=QWidget();self.setCentralWidget(container);layout=QVBoxLayout(container);layout.setContentsMargins(28,22,28,22);layout.setSpacing(12)
         title=QLabel('MicroZed USB Loader');title.setObjectName('title');layout.addWidget(title)
-        row=QHBoxLayout();self.driver_button=QPushButton('Checking driver...');self.driver_button.setEnabled(False);self.driver_button.clicked.connect(self.setup_driver);row.addWidget(self.driver_button);row.addStretch();layout.addLayout(row)
+        row=QHBoxLayout();self.driver_button=QPushButton('Driver help');self.driver_button.clicked.connect(self.driver_help);row.addWidget(self.driver_button);row.addStretch();layout.addLayout(row)
         row=QHBoxLayout();row.addWidget(QLabel('Serial port'));self.ports=QComboBox();self.ports.setAccessibleName('Serial port selection');self.ports.setMinimumWidth(300);row.addWidget(self.ports,1)
         self.refresh=QPushButton('Refresh');self.refresh.clicked.connect(self.scan);row.addWidget(self.refresh)
         layout.addLayout(row)
@@ -79,12 +77,6 @@ class Window(QMainWindow):
         self.bit=FileCard('FPGA','.bit');self.elf=FileCard('CPU','.elf')
         for card in [self.bit,self.elf]:layout.addWidget(card);card.changed.connect(self.schedule_validate);card.dropped.connect(self.drop_paths)
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.validate)
-        row=QHBoxLayout();row.addWidget(QLabel('Mode'));row.addSpacing(16)
-        self.flash_mode=QCheckBox('Save to Flash');self.ram_mode=QCheckBox('Run from RAM')
-        self.mode_group=QButtonGroup(self);self.mode_group.setExclusive(True)
-        for button in (self.flash_mode,self.ram_mode):
-            self.mode_group.addButton(button);row.addWidget(button,1);button.toggled.connect(self.mode_changed)
-        layout.addLayout(row)
         self.mode_hint=QLabel();self.mode_hint.setWordWrap(True);self.mode_hint.setObjectName('muted');layout.addWidget(self.mode_hint)
         row=QHBoxLayout();self.bit_button=QPushButton('Load FPGA only');self.arm_button=QPushButton('Load ARM only');self.both_button=QPushButton('Load both');self.both_button.setObjectName('primary')
         for button,target in [(self.bit_button,'fpga'),(self.arm_button,'arm'),(self.both_button,'both')]:button.clicked.connect(lambda checked=False,t=target:self.start(t));row.addWidget(button)
@@ -93,7 +85,7 @@ class Window(QMainWindow):
         console_title=QLabel('Serial output');console_title.setObjectName('sectionTitle');layout.addWidget(console_title)
         self.log=QPlainTextEdit();self.log.setReadOnly(True);self.log.setPlaceholderText('Transfer progress and board messages will appear here.');self.log.setMaximumBlockCount(6000);self.log.setMinimumHeight(110);layout.addWidget(self.log,1)
         row=QHBoxLayout();row.addStretch();help_button=QPushButton('Help');help_button.clicked.connect(self.help);row.addWidget(help_button);layout.addLayout(row)
-        self.scan();self.flash_mode.setChecked(True);self.mode_changed();self.validate()
+        self.scan();self.mode_changed();self.validate()
         self.setStyleSheet('''
 QMainWindow {background:#f3f5f9;} QWidget {font-family:"Segoe UI";font-size:10pt;color:#24324b;}
 QLabel#badge {background:#edf2fb;color:#365b92;border-radius:4px;padding:3px 9px;font-size:9pt;font-weight:600;} QLabel#sectionTitle {font-weight:600;color:#536982;}
@@ -110,7 +102,6 @@ QProgressBar {border:0;background:#e1e8f2;border-radius:4px;height:12px;text-ali
         self.serial_timer=QTimer(self);self.serial_timer.timeout.connect(self.poll_serial);self.serial_timer.start(100)
         self.ports.currentIndexChanged.connect(self.update_connection_controls)
         self.update_connection_controls()
-        if auto_driver:QTimer.singleShot(0,self.ensure_driver)
     def update_connection_controls(self):
         connected=self.connection is not None and self.connection.is_open
         states=[(self.connect_button,not self.busy and not connected and self.ports.currentData() is not None),
@@ -154,17 +145,15 @@ QProgressBar {border:0;background:#e1e8f2;border-radius:4px;height:12px;text-ali
             if count:self.append_log(self.connection.read(min(count,65536)).decode(errors='replace'))
         except Exception as exc:
             self.append_log('Connection lost: '+str(exc)+'\n');self.disconnect_serial()
-    def ensure_driver(self):
-        missing=needs_install()
-        self.driver_button.setText('Install driver' if missing else 'Driver installed')
-        self.driver_button.setEnabled(missing and not self.busy)
+    def driver_help(self):
+        QMessageBox.information(self,'Driver help',DRIVER_HELP)
     def scan(self):
         previous=self.ports.currentData();self.ports.clear()
         ports=sorted(list_ports.comports(),key=lambda p:(p.vid!=0x10c4,p.device))
         for p in ports:self.ports.addItem(f'{p.device} — {p.description}',p.device)
         index=self.ports.findData(previous)
         if index>=0:self.ports.setCurrentIndex(index)
-        self.ensure_driver()
+        if not ports:self.append_log('No serial ports found. Check the USB-UART cable and driver, then click Refresh. See Driver help.\n')
         self.validate()
     def schedule_validate(self):
         for button in (self.bit_button,self.arm_button,self.both_button):button.setEnabled(False)
@@ -182,8 +171,8 @@ QProgressBar {border:0;background:#e1e8f2;border-radius:4px;height:12px;text-ali
         ready=not self.busy and self.connection is not None and self.connection.is_open
         self.bit_button.setEnabled(ready and 'fpga' in self.images);self.arm_button.setEnabled(ready and 'arm' in self.images);self.both_button.setEnabled(ready and len(self.images)==2)
     def mode_changed(self):
-        self.mode_hint.setText('Program FPGA and CPU separately or together.')
-        destination='Flash' if self.flash_mode.isChecked() else 'RAM'
+        self.mode_hint.setText('Run FPGA and CPU separately or together in RAM. Loaded programs are lost at power-off.')
+        destination='RAM'
         for button,name in [(self.bit_button,'FPGA'),(self.arm_button,'CPU'),(self.both_button,'both')]:
             button.setText('Program '+name)
             button.setToolTip('Program '+name+' to '+destination)
@@ -208,8 +197,8 @@ QProgressBar {border:0;background:#e1e8f2;border-radius:4px;height:12px;text-ali
         port=self.ports.currentData()
         if not port or self.connection is None or not self.connection.is_open:self.append_log('Connect the serial port first.\n');return
         self.log.clear();self.busy=True;self.bar.setValue(0)
-        for w in [self.bit,self.elf,self.ports,self.refresh,self.flash_mode,self.ram_mode,self.driver_button,self.connect_button,self.disconnect_button]:w.setEnabled(False)
-        self.validate();self.worker=Worker(self.connection,'flash' if self.flash_mode.isChecked() else 'ram',fpga,arm);self.worker.text.connect(self.append_log);self.worker.progress.connect(self.on_progress);self.worker.result.connect(self.on_result);self.worker.finished.connect(self.on_finished);self.worker.start()
+        for w in [self.bit,self.elf,self.ports,self.refresh,self.driver_button,self.connect_button,self.disconnect_button]:w.setEnabled(False)
+        self.validate();self.worker=Worker(self.connection,'ram',fpga,arm);self.worker.text.connect(self.append_log);self.worker.progress.connect(self.on_progress);self.worker.result.connect(self.on_result);self.worker.finished.connect(self.on_finished);self.worker.start()
     def append_log(self,text):
         cursor=self.log.textCursor();cursor.movePosition(cursor.MoveOperation.End);cursor.insertText(text.replace('\r',''));self.log.setTextCursor(cursor);self.log.ensureCursorVisible()
     def on_progress(self,n,text):self.bar.setValue(n);self.append_log(text+'\n')
@@ -218,31 +207,21 @@ QProgressBar {border:0;background:#e1e8f2;border-radius:4px;height:12px;text-ali
         if success:self.bar.setValue(100)
     def on_finished(self):
         self.busy=False
-        for w in [self.bit,self.elf,self.ports,self.refresh,self.flash_mode,self.ram_mode,self.driver_button,self.connect_button,self.disconnect_button]:w.setEnabled(True)
-        self.ensure_driver();self.update_connection_controls()
+        for w in [self.bit,self.elf,self.ports,self.refresh,self.driver_button,self.connect_button,self.disconnect_button]:w.setEnabled(True)
+        self.update_connection_controls()
         self.validate()
-    def setup_driver(self):
-        if self.busy:return
-        if not needs_install():self.ensure_driver();return
-        self.busy=True;self.bar.setValue(0);self.log.clear()
-        for w in [self.bit,self.elf,self.ports,self.refresh,self.flash_mode,self.ram_mode,self.driver_button,self.connect_button,self.disconnect_button]:w.setEnabled(False)
-        self.validate();self.worker=DriverTask(ASSETS/'cp210x/silabser.inf')
-        self.worker.text.connect(self.append_log);self.worker.progress.connect(self.on_progress);self.worker.result.connect(self.on_result)
-        self.worker.finished.connect(self.on_finished);self.worker.finished.connect(self.scan);self.worker.start()
     def help(self):
         QMessageBox.information(self,'Help',
             '1. Select the MicroZed USB-UART serial port and click Connect.\n'
             '2. Drop a .bit or .elf file, or click Browse.\n'
-            '3. Choose Save to Flash or Run from RAM, then select an action.\n\n'
-            'The CP210x driver is included and checked at startup. If missing, click Install driver above the serial port. Approve the Windows administrator prompt to install it.\n\n'
-            'Flash mode supports the verified factory U-Boot / Linux layout only. '
-            'The file area is limited to 576 KiB. Saving one component preserves the other. '
-            'Saved programs run on the next boot.\n\n'
+            '3. Select Program FPGA, Program CPU or Program both.\n\n'
+            'RAM loading only: this tool does not write Flash or change the boot environment. Loaded programs are lost at power-off.\n\n'
+            'If no port appears, open Driver help for setup instructions.\n\n'
             'CPU files must be ARM Cortex-A9 standalone executables. '
             'If an application keeps running, press RST while the loader waits for U-Boot.\n\n'
             'USB-UART does not support breakpoint debugging.')
     def closeEvent(self,event):
-        if self.busy:self.append_log('Operation in progress. Wait before closing and keep power connected during Flash writes.\n');event.ignore()
+        if self.busy:self.append_log('Operation in progress. Wait before closing.\n');event.ignore()
         else:self.disconnect_serial();event.accept()
 
 if __name__=='__main__':

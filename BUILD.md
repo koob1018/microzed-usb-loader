@@ -16,6 +16,7 @@ Copy-Item build/cache_sync.bin gui/assets/cache_sync.bin
 vivado -mode batch -source scripts/build_pl.tcl
 ```
 
-`gui/build.ps1` packages the application, examples, driver and notices into `gui/dist/MicroZed-USB-Loader.zip`.
+`gui/build.ps1` packages the application, examples and notices into `gui/dist/MicroZed-USB-Loader.zip`.
 
-Synthetic legacy Flash fixtures are parser/transaction test data, not firmware. Never program them onto hardware.
+
+The CLI can compile all three helpers with `--build-helpers`. ARM GCC and objcopy must be on PATH. The backup reader is not used by RAM-only loading.

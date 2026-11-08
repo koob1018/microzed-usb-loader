@@ -10,7 +10,7 @@ from app import Window
 def test_drop_validation_and_busy_guard():
     app=QApplication.instance() or QApplication([])
     root=Path(__file__).resolve().parents[2]
-    w=Window(auto_driver=False);w.ports.clear();w.ports.addItem('TEST','FAKE');w.connection=SimpleNamespace(port='FAKE',is_open=True,close=lambda:None)
+    w=Window();w.ports.clear();w.ports.addItem('TEST','FAKE');w.connection=SimpleNamespace(port='FAKE',is_open=True,close=lambda:None)
     w.bit.path.clear();w.elf.path.clear();w.validate()
     assert not w.bit.path.acceptDrops() and not w.elf.path.acceptDrops()
     assert not w.both_button.isEnabled()
@@ -23,11 +23,8 @@ def test_drop_validation_and_busy_guard():
     old=w.bit.path.text();w.drop_paths(['wrong.txt']);assert w.bit.path.text()==old
     w.busy=True;w.drop_paths(['different.bit']);assert w.bit.path.text()==old
     w.validate();assert not w.both_button.isEnabled()
-    w.busy=False;assert w.flash_mode.isChecked() and not w.ram_mode.isChecked()
+    w.busy=False
     assert w.both_button.text()=='Program both'
-    w.ram_mode.click();assert w.ram_mode.isChecked() and not w.flash_mode.isChecked()
-    assert w.both_button.text()=='Program both'
-    w.flash_mode.click();w.flash_mode.click()
-    assert w.flash_mode.isChecked() and not w.ram_mode.isChecked()
-    assert w.mode_hint.text()=='Program FPGA and CPU separately or together.'
+    assert not hasattr(w,'flash_mode')
+    assert 'RAM' in w.mode_hint.text()
     w.close()

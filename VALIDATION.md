@@ -1,19 +1,25 @@
-# Validation
+# Validation — v1.1.0
 
-Tested on Windows 11 x64 with one MicroZed XC7Z020 and the factory 2013 U-Boot/Linux layout.
+Tested on Windows 11 x64, Python 3.12, and one MicroZed XC7Z020 with factory 2013 U-Boot.
 
-- Automated tests cover GUI combinations/focus, serial ownership, driver detection, malformed inputs, reserved memory, Flash write bounds/order and speed-switch cleanup.
-- Eight repeated 64 KiB random-data transfers passed CRC and normal-speed console checks.
-- Interrupted YMODEM: receiver cancellation, console recovery and retry passed.
-- Restore before the first speed switch: helper initialization guard passed.
-- FPGA DONE asserted; CPU LED example executed and returned.
-- Combined RAM load: 26.711 seconds. Combined Flash load: 90.090 seconds, including backup and verification. Automatic startup after software reset passed.
-- Initial Flash restored and complete 16 MiB CRC matched its pre-test value; original automatic startup passed.
-- Final helper guard/linker correction was followed by repeat-transfer, cancellation, FPGA and CPU checks. Flash acceptance preceded that correction.
-- Packaged application starts with empty paths, detects the driver, and shows serial selection without a speed selector. ZIP integrity and file checksums verified.
+- 97 automated tests passed: file validation, GUI selection combinations and focus, serial ownership, CLI arguments, monitoring, helper compilation failures, transfer interruption cleanup, and rejection of Flash operations.
+- CLI CPU-only, FPGA-only and combined loads passed using both bundled helpers and helpers compiled from source (six hardware runs).
+- GUI worker CPU-only, FPGA-only and combined loads passed (three hardware runs).
+- CPU LED example reported GPIO readback PASS; FPGA configuration reported DONE; the combined example verified the FPGA signature.
+- Monitor-only opened the port without boot commands. Monitoring after loading received a live board response. Ctrl+C stopped monitoring and released the port.
+- Injected Ctrl+C during a high-speed transfer: cancellation, normal-speed console recovery and subsequent transfer passed.
+- The complete 16 MiB Flash CRC was identical before and after acceptance testing. No Flash write or boot-environment save was performed.
+- Packaged GUI starts with empty file paths, RAM-only controls and driver help linking to the official vendor; no installer is offered.
+- CLI imports and hardware runs used a separate environment containing pyserial only, without Qt.
 
-The same 256 KiB transfer took 36.506 seconds at the original speed and 16.301 seconds with automatic switching, including helper preparation.
+CLI wall-clock timings on this setup:
 
-The latest acceptance run did not simulate physical USB removal during a Flash write. Results describe the tested board and setup, not universal compatibility.
+| Load | Bundled helpers | Compiled helpers |
+| --- | ---: | ---: |
+| CPU LED example | 9.2 s | 9.7 s |
+| FPGA example | 19.8 s | 21.0 s |
+| Both examples | 26.6 s | 26.8 s |
 
-Public tests use synthetic Flash fixtures. No factory Flash dump, course neural-network code, local serial logs or private machine configuration is included.
+Times include connection, helper preparation, verification and program execution, not just data transfer. Source-built runs include compilation.
+
+Linux and macOS hardware testing has not been performed. Results describe this board/setup, not universal compatibility. Automated tests use synthetic data; factory Flash dumps, course neural-network code, local logs and machine configuration are not distributed.

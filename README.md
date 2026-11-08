@@ -1,61 +1,83 @@
 # MicroZed USB Loader
 
-A Windows GUI for loading FPGA `.bit` files and ARM Cortex-A9 CPU `.elf` programs onto a MicroZed 7020 through its USB-UART cable. No JTAG adapter, Ethernet cable or microSD card is required for the verified setup.
+Load FPGA `.bit` and standalone ARM CPU `.elf` files through the MicroZed USB-UART cable using the factory U-Boot. No JTAG adapter, Ethernet cable or microSD card is required for the verified setup.
 
-**[Download the Windows application](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
+**[Download the latest release](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
 
-## Quick start
+**v1.1.0 is RAM-only.** GUI and CLI cannot save programs to Flash or modify the boot environment. Loaded programs are lost at power-off. Drivers are installed separately; none are bundled.
 
-1. Download and extract **MicroZed-USB-Loader.zip**. Keep the executable and `_internal` folder together.
-2. Connect the board's USB-UART port. If the driver is missing, click **Install driver** and approve the Windows administrator prompt.
-3. Select the serial port and click **Connect**.
-4. Drop or browse for a `.bit` and/or `.elf` file.
-5. Choose **Run from RAM** for temporary loading or **Save to Flash** for automatic startup after power-on.
-6. Click **Program FPGA**, **Program CPU**, or **Program both**.
+## Windows GUI
 
-File selections start empty. Transfer speed switches automatically; no baud-rate setting is needed. Vivado, Vitis and Python are not needed to run the packaged application.
+1. Extract **MicroZed-USB-Loader.zip** completely and run the executable. Keep `_internal` alongside it.
+2. Connect USB-UART, select the serial port, and click **Connect**. If no port appears, use **Driver help**, then **Refresh**.
+3. Drop or browse for a `.bit` and/or `.elf` file.
+4. Click **Program FPGA**, **Program CPU** or **Program both**. All loads use RAM.
+5. The connection remains open for serial output. Click **Disconnect** to release it.
+
+The packaged GUI needs no Python, Vivado or Vitis installation. File selections start empty.
+
+## Command line (Windows / Linux / macOS)
+
+Download **MicroZed-USB-Loader-CLI.zip** or clone the repository, then run from its root. Python 3.10+ and **pyserial only** are required; Qt is not needed.
+
+```text
+python -m pip install -r gui/requirements-cli.txt
+python gui/cli.py --list-ports
+python gui/cli.py --port COM4 --elf build/led_test.elf --monitor
+python gui/cli.py --port COM4 --bit build/usb_probe.bit
+python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
+```
+
+Use your actual port: for example `/dev/ttyUSB0` on Linux or `/dev/cu.usbserial-0001` on macOS. `--ram` is accepted for compatibility but optional. `--flash` is not supported.
+
+Monitor without loading or sending boot commands:
+
+```text
+python gui/cli.py --port COM4 --monitor
+```
+
+Press **Ctrl+C** to stop monitoring and release the serial port. During an interrupted download the tool attempts to cancel reception and restore the console; if recovery is not confirmed, press **RST** before retrying. Do not connect the GUI and CLI to the same port simultaneously.
+
+### Build helpers from source
+
+To avoid precompiled helper binaries, install `arm-none-eabi-gcc` and `arm-none-eabi-objcopy` on PATH:
+
+```text
+python gui/cli.py --port COM4 --elf build/led_test.elf --build-helpers --monitor
+```
+
+This compiles `cache_sync`, `uart_speed` and `backup_sender` into a temporary directory and uses the freshly built RAM helpers for that session. `backup_sender` is retained as buildable source for review, but the RAM-only loader does not upload or use it. No vendor FPGA tools are required to compile these helpers. See [BUILD.md](BUILD.md).
 
 ## LED example
 
-Select `examples/led_test.elf`, choose **Run from RAM**, then click **Program CPU**. D3 blinks six times and stays on. This example needs no FPGA file.
+CPU-only: `build/led_test.elf` (GUI ZIP: `examples/led_test.elf`) blinks D3 six times and leaves it on, then returns to U-Boot. No FPGA file is needed.
 
-For a combined test, select `examples/usb_probe.bit` and `examples/fpga_cpu_test.elf`. The CPU checks an FPGA signature and blinks D3. See [example instructions](gui/EXAMPLES.txt).
+Combined test: `build/usb_probe.bit` with `build/hello.elf` (GUI ZIP: `examples/fpga_cpu_test.elf`) checks an FPGA signature before blinking D3.
 
-## How it works
+## How it works and compatibility
 
-The loader uses existing U-Boot and transfers data into DDR using YMODEM. A RAM helper temporarily switches UART transfers to 921600, then restores the 115200 console. U-Boot configures the FPGA through PCAP and launches the CPU program at its ELF entry point. Every transfer is checked with CRC32.
+U-Boot receives data into DDR using YMODEM. A RAM helper switches transfers to 921600 and restores the 115200 console. U-Boot configures the FPGA through PCAP and starts CPU code at the ELF entry point. CRC32 verifies transfers.
 
-Flash mode backs up the writable region, writes and verifies the payload, then updates the boot environment. Updating only one component preserves the other saved component.
+- Hardware tested on MicroZed XC7Z020-1CLG400 with factory 2013 U-Boot, Windows 11 x64. Linux/macOS CLI support uses portable Python/pyserial; hardware validation on those hosts is not yet claimed.
+- CPU files must be standalone ARM Cortex-A9 executables, not Linux programs. Existing PS clocks, DDR and MIO initialization must match the design. The loader does not apply an XSA, ps7_init.tcl or FSBL.
+- Helpers reserve `0x0f000000–0x0f001fff`; overlapping CPU images are rejected.
+- RAM/address limits still apply, but the former 576 KiB Flash limit no longer applies to loading.
+- If a running program does not return, start loading and press RST while the tool waits for U-Boot. This tool does not provide breakpoint debugging.
+- The loader itself issues no Flash writes. Arbitrary CPU programs execute with board-level privileges, so load only code you trust.
 
-## Compatibility and limits
+See [driver setup](DRIVERS.md), [validation](VALIDATION.md) and [changes](CHANGELOG.md).
 
-- Tested on one MicroZed **XC7Z020-1CLG400**, with the verified 2013 factory U-Boot/Linux layout and CP210x USB-UART, on Windows 11 x64.
-- Factory U-Boot and Linux remain protected. The application area is **576 KiB**, including metadata and helper code. Larger files can use RAM mode, subject to RAM/address limits.
-- CPU executables must be compatible standalone ARM programs, not Linux applications. The loader does not apply an XSA, `ps7_init.tcl` or a new FSBL. PS clocks, DDR and MIO configuration must match the running setup.
-- Helpers reserve `0x0f000000–0x0f001fff`. Overlapping CPU images are rejected.
-- If a previous program does not return, start the operation and press **RST** while the tool waits for U-Boot. Keep power connected during Flash writes.
-- This is a loader, not a breakpoint debugger. Arbitrary boards or firmware layouts are not supported.
+## Develop the GUI
 
-## Build from source
-
-Use Python 3.12 on Windows:
-
-```powershell
+```text
 python -m venv gui/.venv
 gui/.venv/Scripts/python.exe -m pip install -r gui/requirements.txt
 gui/.venv/Scripts/python.exe -m pytest gui/tests -q
 gui/.venv/Scripts/python.exe gui/app.py
-./gui/build.ps1
 ```
 
-Prebuilt demonstration files and RAM helpers are included. Original C sources and linker scripts are under `src/` and `persistent/`; FPGA generation is in `scripts/build_pl.tcl`. Rebuilding these requires AMD tools. See [build instructions](BUILD.md).
+On Windows, run `gui/build.ps1` to package the GUI. Original code is MIT licensed; see [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Validation
+## Acknowledgements
 
-Hardware checks covered eight repeated transfers, CRC verification, interrupted-transfer recovery, FPGA DONE, CPU execution, serial connection retention, Flash readback and automatic startup. Test Flash contents were restored afterward.
-
-The same 256 KiB payload took **36.5 s at the original speed and 16.3 s with automatic switching** (about 2.2x). A small FPGA + LED CPU example took **26.7 s** in RAM mode and **90.1 s** in Flash mode, including applicable verification/backup steps. Times vary with payload and setup. See [validation notes](VALIDATION.md).
-
-## License
-
-Original code is MIT licensed: use, modify and redistribute it with the copyright and license notice. Bundled third-party components retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Thanks to Shiming Li for testing the tool, contributing the initial CLI with monitoring and source-built helpers, and suggesting the RAM-only workflow and separate driver installation.

@@ -11,7 +11,7 @@ class Port:
 def test_connect_disconnect_and_busy(monkeypatch):
     qt=QApplication.instance() or QApplication([])
     monkeypatch.setattr(gui.serial,'Serial',Port)
-    w=gui.Window(auto_driver=False);w.ports.clear();w.ports.addItem('Test','TEST')
+    w=gui.Window();w.ports.clear();w.ports.addItem('Test','TEST')
     w.connect_serial();port=w.connection
     assert port.is_open and not w.ports.isEnabled() and w.disconnect_button.isEnabled()
     with Board(port,'.') as board:assert board.s is port
@@ -27,7 +27,7 @@ def test_connection_failure_and_idle_read(monkeypatch):
     qt=QApplication.instance() or QApplication([])
     def fail(*a,**kw):raise OSError('Port in use')
     monkeypatch.setattr(gui.serial,'Serial',fail)
-    w=gui.Window(auto_driver=False);w.ports.clear();w.ports.addItem('Test','TEST');w.connect_serial()
+    w=gui.Window();w.ports.clear();w.ports.addItem('Test','TEST');w.connect_serial()
     assert w.connection is None and 'Port in use' in w.log.toPlainText()
     w.connection=Port('TEST');w.connection.in_waiting=4;w.connection.read=lambda n:b'test'
     w.poll_serial();assert w.log.toPlainText().endswith('test')
@@ -39,7 +39,7 @@ def test_serial_actions_do_not_select_file_paths(monkeypatch):
     from PySide6.QtCore import Qt
     qt=QApplication.instance() or QApplication([])
     monkeypatch.setattr(gui.serial,'Serial',Port)
-    w=gui.Window(auto_driver=False);w.ports.clear();w.ports.addItem('Test','TEST')
+    w=gui.Window();w.ports.clear();w.ports.addItem('Test','TEST')
     w.bit.path.setText('example.bit');w.elf.path.setText('example.elf')
     w.show();w.activateWindow();qt.processEvents()
     w.connect_button.setFocus();w.bit.path.deselect();w.elf.path.deselect()
@@ -58,10 +58,10 @@ def test_serial_actions_do_not_select_file_paths(monkeypatch):
 
 def test_file_paths_are_not_restored():
     qt=QApplication.instance() or QApplication([])
-    w=gui.Window(auto_driver=False)
+    w=gui.Window()
     assert w.bit.path.text()=='' and w.elf.path.text()==''
     w.bit.path.setText('private/example.bit');w.elf.path.setText('private/example.elf')
     w.close()
-    fresh=gui.Window(auto_driver=False)
+    fresh=gui.Window()
     assert fresh.bit.path.text()=='' and fresh.elf.path.text()==''
     fresh.close()
