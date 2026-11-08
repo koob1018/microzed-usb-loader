@@ -4,7 +4,7 @@ Load FPGA `.bit` and standalone ARM CPU `.elf` files through the MicroZed USB-UA
 
 **[Download the latest release](https://github.com/koob1018/microzed-usb-loader/releases/latest)**
 
-**v1.1.0 is RAM-only.** GUI and CLI cannot save programs to Flash or modify the boot environment. Loaded programs are lost at power-off. Drivers are installed separately; none are bundled.
+Choose the Windows GUI or the lightweight Python CLI. Both load programs into RAM for immediate execution; loaded programs are lost at power-off. Drivers are installed separately; see [driver setup](DRIVERS.md).
 
 ## Windows GUI
 
@@ -28,7 +28,7 @@ python gui/cli.py --port COM4 --bit build/usb_probe.bit
 python gui/cli.py --port COM4 --bit build/usb_probe.bit --elf build/hello.elf --monitor
 ```
 
-Use your actual port: for example `/dev/ttyUSB0` on Linux or `/dev/cu.usbserial-0001` on macOS. `--ram` is accepted for compatibility but optional. `--flash` is not supported.
+Use your actual port: for example `/dev/ttyUSB0` on Linux or `/dev/cu.usbserial-0001` on macOS. `--ram` is accepted for compatibility but optional.
 
 Monitor without loading or sending boot commands:
 
@@ -61,9 +61,8 @@ U-Boot receives data into DDR using YMODEM. A RAM helper switches transfers to 9
 - Hardware tested on MicroZed XC7Z020-1CLG400 with factory 2013 U-Boot, Windows 11 x64. Linux/macOS CLI support uses portable Python/pyserial; hardware validation on those hosts is not yet claimed.
 - CPU files must be standalone ARM Cortex-A9 executables, not Linux programs. Existing PS clocks, DDR and MIO initialization must match the design. The loader does not apply an XSA, ps7_init.tcl or FSBL.
 - Helpers reserve `0x0f000000–0x0f001fff`; overlapping CPU images are rejected.
-- RAM/address limits still apply, but the former 576 KiB Flash limit no longer applies to loading.
 - If a running program does not return, start loading and press RST while the tool waits for U-Boot. This tool does not provide breakpoint debugging.
-- The loader itself issues no Flash writes. Arbitrary CPU programs execute with board-level privileges, so load only code you trust.
+- CPU programs execute with board-level privileges, so load only code you trust.
 
 See [driver setup](DRIVERS.md), [validation](VALIDATION.md) and [changes](CHANGELOG.md).
 
